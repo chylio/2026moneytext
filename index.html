@@ -213,6 +213,16 @@ Object.keys(groups).forEach(b=>{
 
 function classify(t){let best=null,bl=0;for(const r of RULES)for(const k of r.kw)if(t.includes(k)&&k.length>bl){best=r;bl=k.length}return best}
 function ruleByCat(c){return RULES.find(r=>r.cat===c)}
+function matchCat(s){
+  if(!s)return null;
+  s=String(s).replace(/^(人事費|業務費|設備費)[－\-—:：、\s]*/,'').trim();
+  let r=ruleByCat(s);
+  if(r)return r;
+  r=RULES.find(x=>s.includes(x.cat)||x.cat.includes(s));
+  if(r)return r;
+  const core=s.replace(/^其他[-－]?/,'');
+  return RULES.find(x=>x.cat.replace(/^其他[-－]?/,'')===core)||null;
+}
 
 function setStatus(txt,ok){
   const s=$('saveStatus');
@@ -335,12 +345,21 @@ async function aiJudge(){
     let j;
     try{j=JSON.parse(clean)}catch(pe){throw new Error('AI 回覆格式不完整，請再按一次重試')}
     if(j.mode==='bundle'&&Array.isArray(j.items)&&j.items.length){
-      PENDING=j.items.filter(it=>ruleByCat(it.cat)).map(it=>({name:it.name,cat:it.cat,big:ruleByCat(it.cat).big,note:it.note||'',added:false}));
-      renderBundle(name,j.reason||'此為活動包，需拆成實際支出分項編列。');
+      PENDING=j.items.map(it=>{
+        const r=matchCat(it.cat);
+        return {name:String(it.name||'').trim(),cat:r?r.cat:'',big:r?r.big:'',note:it.note||(r?'':'請手動選科目'),added:false};
+      }).filter(it=>it.name);
+      if(!PENDING.length){
+        localBundle(name,'AI 回覆的拆項無法解析');
+      }else{
+        renderBundle(name,j.reason||'此為活動包，需拆成實際支出分項編列。');
+      }
     }else{
-      const r=ruleByCat(j.cat);
-      if(!r){throw new Error('科目不在清單中')}
-      if(amt&&amt>0){
+      const r=matchCat(j.cat);
+      if(!r){
+        box.className='hint warn';
+        box.innerHTML='<b>AI 判斷結果無法對應科目清單</b><br>AI 認為：'+esc(j.cat||'')+'（'+esc(j.reason||'')+'）<br>請參考此結果，由上方下拉選單手動選擇最接近的科目後按「加入明細」。';
+      }else if(amt&&amt>0){
         state.entries.push({name:name,amt:amt,cat:r.cat,big:r.big});
         $('itemName').value='';$('itemAmt').value='';
         render();scheduleSave();
