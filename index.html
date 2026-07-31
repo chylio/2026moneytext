@@ -140,6 +140,9 @@ th.num{text-align:right}
   <div class="toolbar no-print">
     <button id="csvBtn">匯出 CSV（Excel 可開）</button>
     <button onclick="window.print()">列印／存 PDF</button>
+    <button id="bakBtn">匯出備份</button>
+    <button id="restoreBtn">還原備份</button>
+    <input type="file" id="restoreFile" accept=".json" style="display:none">
     <button id="clearBtn" style="margin-left:auto;color:var(--danger)">清空全部</button>
   </div>
 </div>
@@ -225,11 +228,14 @@ function scheduleSave(){
   setStatus('儲存中…',false);
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
-    try{
-      const res=await window.storage.set(KEY,JSON.stringify(state));
-      if(res){setStatus('已自動儲存 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true)}
-      else{setStatus('儲存失敗，請稍後再試',false)}
-    }catch(e){setStatus('儲存失敗，請稍後再試',false)}
+    for(let i=1;i<=3;i++){
+      try{
+        const res=await window.storage.set(KEY,JSON.stringify(state));
+        if(res){setStatus('已自動儲存 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);return}
+      }catch(e){}
+      await new Promise(r=>setTimeout(r,1000*i));
+    }
+    setStatus('自動儲存失敗（平台問題）。資料仍在畫面中，請用「匯出備份」保存',false);
   },400);
 }
 
@@ -468,6 +474,34 @@ $('apiKeySave').addEventListener('click',()=>{
 $('apiKeyClear').addEventListener('click',()=>{
   $('apiKey').value='';state.apiKey='';scheduleSave();
   setStatus('金鑰已清除，改回平台通道',true);
+});
+$('bakBtn').addEventListener('click',()=>{
+  const bak={plan:state.plan,entries:state.entries};
+  const blob=new Blob([JSON.stringify(bak,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='深耕經費明細備份_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+  setStatus('備份已下載（不含金鑰）',true);
+});
+$('restoreBtn').addEventListener('click',()=>$('restoreFile').click());
+$('restoreFile').addEventListener('change',e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      if(!Array.isArray(d.entries))throw new Error('格式不符');
+      if(state.entries.length&&!confirm('還原將覆蓋目前 '+state.entries.length+' 筆明細，確定？'))return;
+      state.plan=d.plan||'';state.entries=d.entries;
+      $('planName').value=state.plan;
+      render();scheduleSave();
+      setStatus('已從備份還原 '+state.entries.length+' 筆明細',true);
+    }catch(err){setStatus('備份檔讀取失敗：'+(err.message||err),false)}
+  };
+  rd.readAsText(f);
+  e.target.value='';
 });
 
 $('clearBtn').addEventListener('click',()=>{
