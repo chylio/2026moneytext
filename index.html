@@ -186,6 +186,18 @@ const RULES=[
 
 const KEY='shengeng-budget-v1';
 let state={plan:'',entries:[]};
+const IN_CLAUDE=!!(window.storage&&typeof window.storage.get==='function');
+const store={
+  async get(k){
+    if(IN_CLAUDE)return await window.storage.get(k);
+    try{const v=localStorage.getItem(k);return v!==null?{value:v}:null}catch(e){return null}
+  },
+  async set(k,v){
+    if(IN_CLAUDE)return await window.storage.set(k,v);
+    try{localStorage.setItem(k,v);return{key:k,value:v}}catch(e){return null}
+  }
+};
+const STORE_NAME=IN_CLAUDE?'雲端':'本機瀏覽器';
 const $=id=>document.getElementById(id);
 const fmt=n=>'$'+Math.round(n).toLocaleString('zh-TW');
 let saveTimer=null;
@@ -210,14 +222,16 @@ function setStatus(txt,ok){
 
 async function load(){
   try{
-    const res=await window.storage.get(KEY);
+    const res=await store.get(KEY);
     if(res&&res.value){
       const d=JSON.parse(res.value);
       if(d&&Array.isArray(d.entries)){state=d}
+      setStatus('已載入'+STORE_NAME+'儲存資料',true);
+    }else{
+      setStatus('新的一份（儲存於'+STORE_NAME+'）',true);
     }
-    setStatus('已載入儲存資料',true);
   }catch(e){
-    setStatus('新的一份（尚無儲存資料）',false);
+    setStatus('新的一份（儲存於'+STORE_NAME+'）',true);
   }
   $('planName').value=state.plan||'';
   $('apiKey').value=state.apiKey||'';
@@ -230,12 +244,12 @@ function scheduleSave(){
   saveTimer=setTimeout(async()=>{
     for(let i=1;i<=3;i++){
       try{
-        const res=await window.storage.set(KEY,JSON.stringify(state));
-        if(res){setStatus('已自動儲存 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);return}
+        const res=await store.set(KEY,JSON.stringify(state));
+        if(res){setStatus('已自動儲存於'+STORE_NAME+' '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);return}
       }catch(e){}
       await new Promise(r=>setTimeout(r,1000*i));
     }
-    setStatus('自動儲存失敗（平台問題）。資料仍在畫面中，請用「匯出備份」保存',false);
+    setStatus('自動儲存失敗。資料仍在畫面中，請用「匯出備份」保存',false);
   },400);
 }
 
