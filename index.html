@@ -330,7 +330,7 @@ async function aiJudge(){
           body:JSON.stringify({
             model:'claude-sonnet-4-6',
             max_tokens:1000,
-            messages:[{role:'user',content:'你是奇美醫院健康臺灣深耕計畫（A1002 程序書）的經費編列助理。經費科目僅限以下清單：'+catList+'。判斷原則：看實際購買的東西而非用途名稱；印製品歸印刷費；場地歸租金；單價未達1萬元物品歸材料費；1萬元以上且年限2年以上歸設備費；講師授課歸講座鐘點費。特別注意：若輸入是「活動包」（用途描述而非單一支出品項，如：辦理某某工作坊、訓練、會議、試辦活動、評量分析等），必須拆成該活動實際會發生的多筆支出。院內同仁共備會議不得編出席費（工作協調性質不得支領），僅院外專家以專家身分出席可編。請判斷「'+name+'」。只回覆 JSON，不要任何其他文字或markdown符號。若為單一支出：{"mode":"single","cat":"科目名稱須與清單完全一致","reason":"30字內理由","docs":"佐證文件40字內"}。若為活動包：{"mode":"bundle","reason":"為何需拆項，40字內","items":[{"name":"具體支出品項名","cat":"科目名稱須與清單完全一致","note":"上限或標準提醒20字內"}]}，items列出4到6筆最可能的支出，全部內容務必精簡以確保JSON完整。'}]
+            messages:[{role:'user',content:'你是奇美醫院健康臺灣深耕計畫（A1002 程序書）的經費編列助理。經費科目僅限以下清單：'+catList+'。判斷原則：看實際購買的東西而非用途名稱；印製品歸印刷費；場地歸租金；單價未達1萬元物品歸材料費；1萬元以上且年限2年以上歸設備費；講師授課歸講座鐘點費。特別注意：若輸入是「活動包」（用途描述而非單一支出品項，如：辦理某某工作坊、訓練、會議、試辦活動、評量分析等），必須拆成該活動實際會發生的多筆支出。院內同仁共備會議不得編出席費（工作協調性質不得支領），僅院外專家以專家身分出席可編。請判斷「'+name+'」。只回覆 JSON，不要任何其他文字或markdown符號。若為單一支出：{"mode":"single","cat":"科目名稱須與清單完全一致","reason":"30字內理由","docs":"佐證文件40字內"}。若為活動包：{"mode":"bundle","reason":"為何需拆項，40字內","items":[{"name":"具體支出品項名","cat":"科目名稱須與清單完全一致","note":"該筆支出的重點提醒（含金額上限或特別限制）40字內"}]}，items列出4到6筆最可能的支出，內容精簡以確保JSON完整。'}]
           })
         });
         data=await resp.json();
@@ -401,20 +401,31 @@ function catOptionsHtml(){
   return h;
 }
 
+function tipFor(it){
+  const r=ruleByCat(it.cat);
+  let t='';
+  if(it.note)t+='<span style="color:var(--pine-deep);font-weight:500">'+esc(it.note)+'</span>';
+  if(r){t+=(t?'<br>':'')+'<span style="color:var(--ink-2)">【'+r.big+'－'+r.cat+' 核銷規定】'+esc(r.tip)+'</span>'}
+  else{t+=(t?'<br>':'')+'<span style="color:var(--ink-2)">請先選擇科目，選定後此處會顯示該科目的完整核銷規定與佐證文件。</span>'}
+  return t;
+}
+
 function renderBundle(srcName,reason){
   const box=$('hintBox');
   let html='<b>「'+esc(srcName)+'」是活動包，不能歸單一科目</b><br>'+esc(reason)+'<br>拆項對照如下，確認科目、填入金額後逐筆按「加入」，或填完後按「全部加入」：';
-  html+='<table style="margin-top:10px;font-size:13px"><thead><tr><th style="width:30%">建議支出品項</th><th style="width:28%">科目（可修改）</th><th style="width:20%">提醒</th><th style="width:15%">金額</th><th style="width:7%"></th></tr></thead><tbody>';
   const opts=catOptionsHtml();
   PENDING.forEach((it,i)=>{
-    html+='<tr id="pRow'+i+'"><td>'+esc(it.name)+'</td>'+
-      '<td><select id="pCat'+i+'" style="height:32px;font-size:12.5px;padding:0 6px">'+opts+'</select></td>'+
-      '<td style="color:var(--ink-2);font-size:12px">'+esc(it.note)+'</td>'+
-      '<td><input type="number" id="pAmt'+i+'" min="0" step="1" style="height:32px;font-size:13px;padding:0 8px" placeholder="0"></td>'+
-      '<td><button id="pAdd'+i+'" style="height:32px;padding:0 10px;font-size:13px">加入</button></td></tr>';
+    html+='<div id="pRow'+i+'" style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px">'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:180px;font-size:14.5px;font-weight:500">'+esc(it.name)+'</div>'+
+        '<select id="pCat'+i+'" style="width:190px;height:36px;font-size:13.5px;padding:0 8px">'+opts+'</select>'+
+        '<input type="number" id="pAmt'+i+'" min="0" step="1" style="width:120px;height:36px;font-size:14px;padding:0 10px" placeholder="金額（元）">'+
+        '<button id="pAdd'+i+'" style="height:36px;padding:0 16px;font-size:14px">加入</button>'+
+      '</div>'+
+      '<div id="pTip'+i+'" style="margin-top:8px;font-size:13.5px;line-height:1.75;border-top:1px dashed var(--line);padding-top:8px">'+tipFor(it)+'</div>'+
+    '</div>';
   });
-  html+='</tbody></table>';
-  html+='<div style="margin-top:10px;display:flex;gap:8px"><button id="pAddAll" style="background:var(--pine);border-color:var(--pine);color:#fff;font-weight:500;height:36px">全部加入（已填金額的列）</button><button id="pClose" style="height:36px">關閉</button></div>';
+  html+='<div style="margin-top:12px;display:flex;gap:8px"><button id="pAddAll" style="background:var(--pine);border-color:var(--pine);color:#fff;font-weight:500;height:38px">全部加入（已填金額的列）</button><button id="pClose" style="height:38px">關閉</button></div>';
   box.className='hint';box.style.display='block';
   box.innerHTML=html;
   PENDING.forEach((it,i)=>{
@@ -423,6 +434,7 @@ function renderBundle(srcName,reason){
     cs.addEventListener('change',()=>{
       const r=ruleByCat(cs.value);
       it.cat=r?r.cat:'';it.big=r?r.big:'';
+      document.getElementById('pTip'+i).innerHTML=tipFor(it);
     });
     document.getElementById('pAdd'+i).addEventListener('click',()=>addSuggested(i));
     document.getElementById('pAmt'+i).addEventListener('keydown',e=>{if(e.key==='Enter')addSuggested(i)});
