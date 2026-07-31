@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>深耕計畫經費歸類工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c2a26; --ink-2:#5a6b66; --ink-3:#93a29d;
+  --paper:#f6f7f5; --card:#ffffff; --line:#e2e6e3; --line-2:#c9d1cd;
+  --pine:#0f6e56; --pine-deep:#085041; --pine-tint:#e1f5ee;
+  --plum:#3c3489; --plum-tint:#eeedfe;
+  --amber-deep:#633806; --amber-tint:#faeeda;
+  --danger:#a32d2d; --danger-tint:#fcebeb;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.65;padding:28px 16px 60px}
+.wrap{max-width:860px;margin:0 auto}
+header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:3px solid var(--pine);padding-bottom:14px;margin-bottom:20px}
+h1{font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--pine-deep);letter-spacing:.02em}
+.doc-tag{font-size:12px;color:var(--ink-3);letter-spacing:.05em}
+.status{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--line-2)}
+.status.saved .dot{background:var(--pine)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+label{font-size:13px;color:var(--ink-2);display:block;margin-bottom:4px}
+input[type=text],input[type=number],select{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--pine);outline-offset:1px;border-color:var(--pine)}
+.grid-input{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.row .grow{flex:1;min-width:200px}
+button{font:inherit;font-size:14px;height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--line-2);background:#fff;color:var(--ink);cursor:pointer;transition:background .12s}
+button:hover{background:var(--paper)}
+button.primary{background:var(--pine);border-color:var(--pine);color:#fff;font-weight:500}
+button.primary:hover{background:var(--pine-deep)}
+button.subtle{border:none;background:transparent;color:var(--ink-3);height:auto;padding:4px 8px;font-size:13px}
+button.subtle:hover{color:var(--danger);background:transparent}
+.hint{margin-top:12px;border-left:4px solid var(--pine);background:var(--pine-tint);border-radius:0 8px 8px 0;padding:10px 14px;font-size:13.5px;display:none}
+.hint.warn{border-left-color:#ba7517;background:var(--amber-tint)}
+.hint b{color:var(--pine-deep)}
+.hint.warn b{color:var(--amber-deep)}
+.sums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.sum{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.sum .lbl{font-size:12.5px;color:var(--ink-2);margin-bottom:2px}
+.sum .val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.sum.total{background:var(--pine-deep);border-color:var(--pine-deep)}
+.sum.total .lbl{color:#9fe1cb}
+.sum.total .val{color:#fff}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12.5px;font-weight:500;color:var(--ink-2);text-align:left;padding:8px 6px;border-bottom:2px solid var(--line-2)}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.badge{display:inline-block;font-size:12px;padding:2px 10px;border-radius:99px;white-space:nowrap}
+.b-p{background:var(--plum-tint);color:var(--plum)}
+.b-b{background:var(--pine-tint);color:var(--pine-deep)}
+.b-s{background:var(--amber-tint);color:var(--amber-deep)}
+.empty{text-align:center;color:var(--ink-3);padding:26px 0;font-size:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.foot{font-size:12px;color:var(--ink-3);margin-top:20px;line-height:1.8}
+.subtotal-row td{font-weight:500;background:var(--paper);border-bottom:1px solid var(--line-2)}
+@media (max-width:560px){.grid-input{grid-template-columns:1fr}}
+@media print{
+  body{background:#fff;padding:0}
+  .no-print{display:none!important}
+  .card,.sum{border-color:#999}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>健康臺灣深耕計畫　經費歸類工具</h1>
+    <div class="doc-tag">依 總院-院部-深耕-2-A1002 附件 7.2／7.7 編製　·　資料自動儲存</div>
+  </div>
+  <div class="status" id="saveStatus"><span class="dot"></span><span id="saveText">尚未儲存</span></div>
+</header>
+
+<div class="card no-print">
+  <div style="margin-bottom:12px">
+    <label for="planName">子計畫／活動名稱（會一併儲存與匯出）</label>
+    <input type="text" id="planName" placeholder="例：範疇二 多元人才培訓－教師工作坊系列">
+  </div>
+  <div class="grid-input">
+    <div>
+      <label for="itemName">品項說明</label>
+      <input type="text" id="itemName" placeholder="輸入品項，如：博物館場地費用、講義印製" autocomplete="off">
+    </div>
+    <div>
+      <label for="itemAmt">金額（元）</label>
+      <input type="number" id="itemAmt" min="0" step="1" placeholder="0">
+    </div>
+  </div>
+  <div class="row">
+    <div class="grow">
+      <label for="catSelect">科目（可手動修改自動判斷結果）</label>
+      <select id="catSelect"></select>
+    </div>
+    <button class="primary" id="addBtn">＋ 加入明細</button>
+    <button id="aiTopBtn" onclick="aiJudge()">Claude 判斷並編列</button>
+  </div>
+  <div class="hint" id="hintBox"></div>
+  <details style="margin-top:12px">
+    <summary style="font-size:13px;color:var(--ink-3);cursor:pointer">進階設定：Anthropic API Key（AI 判斷連線失敗時填入可改用直連）</summary>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:end;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <label for="apiKey">API Key（sk-ant- 開頭，於 console.anthropic.com 申請）</label>
+        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+      </div>
+      <button id="apiKeySave" style="height:40px">儲存金鑰</button>
+      <button id="apiKeyClear" style="height:40px">清除</button>
+    </div>
+    <p style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.7">金鑰只儲存在您個人的工具儲存空間，用於呼叫 AI 判斷（每次約 0.1 元台幣以下）。請勿將金鑰提供給他人；不填也能使用本機關鍵字拆項功能。</p>
+  </details>
+</div>
+
+<div class="sums">
+  <div class="sum"><div class="lbl">人事費</div><div class="val" id="sumP">$0</div></div>
+  <div class="sum"><div class="lbl">業務費</div><div class="val" id="sumB">$0</div></div>
+  <div class="sum"><div class="lbl">設備費</div><div class="val" id="sumS">$0</div></div>
+  <div class="sum total"><div class="lbl">總計</div><div class="val" id="sumT">$0</div></div>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:34%">品項</th>
+        <th style="width:14%">大類</th>
+        <th style="width:24%">科目</th>
+        <th class="num" style="width:16%">金額</th>
+        <th style="width:8%" class="no-print"></th>
+      </tr>
+    </thead>
+    <tbody id="listBody"></tbody>
+  </table>
+  <div class="toolbar no-print">
+    <button id="csvBtn">匯出 CSV（Excel 可開）</button>
+    <button onclick="window.print()">列印／存 PDF</button>
+    <button id="clearBtn" style="margin-left:auto;color:var(--danger)">清空全部</button>
+  </div>
+</div>
+
+<p class="foot">
+判斷原則：看「實際購買的東西」而非用途名稱；一個活動含場地、講師、餐費等多種支出時，應拆項分別編列。
+各子計畫須分開編列個別經費明細表（5.5.1(5)b）；各大類經費應填列小計，並儘量編列至仟元（5.5.1(5)d）。
+本工具為編列輔助，正式送件仍以深耕計畫辦公室公告格式為準。
+</p>
+</div>
+
+<script>
+const RULES=[
+{cat:'印刷費',big:'業務費',kw:['印刷','影印','海報','手冊','裝訂','輸出','大圖','展示','教材','講義','資料製作','印製','文宣','DM','簡章','摺頁','帆布','易拉展','背板'],tip:'展示輸出、教材、研討會資料等印製品歸「業務費－印刷費」。佐證：原始憑證、印刷影本樣張；詳列品名、單價、數量、總價。含場地/講師/便當之活動需拆項編列。'},
+{cat:'租金',big:'業務費',kw:['場地','租','租借','租用','會場','博物館','展場'],tip:'場地須有對外一致性公開之收費標準。佐證：核准簽呈、原始憑證、租賃證明（契約書）、活動議程。設備或資訊軟硬體租金應詳列品名、單價、數量、總價。'},
+{cat:'講座鐘點費',big:'業務費',kw:['講師','鐘點','演講','授課','講座','助教','工作坊','VTS','共備','訓練'],tip:'外聘 2,000 元/節、內聘 1,000 元/節，助教折半；一節 50 分鐘、90 分鐘為兩節。主持人費僅能編列在配合款（需簽呈）。佐證：核准簽呈、領據、議程表（含日期、時間、地點、講師姓名、課程內容）。'},
+{cat:'餐費',big:'業務費',kw:['便當','餐','午餐','晚餐','餐盒'],tip:'每人次最高 140 元，限已逾用餐時間之會議（超過 12:00 或 18:00）。佐證：核准簽呈、原始憑證、活動議程或開會通知、簽到單。'},
+{cat:'其他-茶水費',big:'業務費',kw:['茶水','飲用水','礦泉水','瓶裝水'],tip:'每人次最高 60 元，限半天（4 小時）以上活動；以瓶裝或桶裝為限，不補助手搖飲、零食、點心、水果。'},
+{cat:'國內旅費',big:'業務費',kw:['高鐵','火車','出差','差旅','住宿','國內旅'],tip:'交通以經濟（標準）座艙為限核實報支；住宿上限平日 3,500、假日 4,500 元。計程車費不得報支。訓練出差需附出差公文、A1002-05 報告表及心得報告。'},
+{cat:'國外旅費',big:'業務費',kw:['機票','出國','國外','國際會議','註冊費'],tip:'僅限範疇二。須搭本國籍航空、經濟艙最直接航程；生活費 70% 住宿、20% 膳食、10% 零用。詳見 A1002-06 核對表。'},
+{cat:'出席費',big:'業務費',kw:['出席費','專家諮詢','諮詢會議'],tip:'每人每場次最高 2,500 元；工作協調性質、經常性會議、受補助計畫項下人員及非專家身分不得支領。佐證：領據、開會通知（含議程）、簽到單、會議紀錄。'},
+{cat:'文具紙張',big:'業務費',kw:['文具','紙張','油墨','碳粉','筆'],tip:'以院內請購系統為主要購買方式。佐證：原始憑證、請購單-黃單；詳列品名、單價、數量、總價。'},
+{cat:'材料費',big:'業務費',kw:['材料','耗材','器皿','試劑','教具','模型'],tip:'限單價未達 1 萬元或年限未及 2 年之非消耗性物品，且與計畫直接相關；不得購置影印機、印表機、電腦螢幕、碎紙機等。佐證：核准簽呈、原始憑證、課程名稱、材料照片及用途說明。'},
+{cat:'資料蒐集費',big:'業務費',kw:['圖書','書籍','期刊','資料檢索'],tip:'圖書每本需低於 10,000 元；由分項計畫負責人列管並送圖書館列冊。佐證：原始憑證、書籍封面影本。'},
+{cat:'郵電費',big:'業務費',kw:['郵','快遞','快捷','寄送'],tip:'須註明收件人姓名及用途；電話裝機費及行動電話費不得報支。佐證：原始憑證、郵寄清單。'},
+{cat:'調查訪問費',big:'業務費',kw:['問卷','訪視','訪問','調查','訪談','焦點團體','前後測','量表','評量'],tip:'每份 50～250 元（訪視費及禮品費合計），依問卷繁簡酌予增減。佐證：原始憑證、簽領清冊、問卷樣本。'},
+{cat:'臨時人員費用',big:'業務費',kw:['臨時工','工讀','臨時人員'],tip:'依基本工資時薪標準；院內編制人員不得請領；各計畫間工作時段不得重複。出勤表每日親簽、工作內容需具體，附 A1002-04。'},
+{cat:'其他-課程報名費',big:'業務費',kw:['報名費','認證費','培訓課程','研習'],tip:'課程須與計畫直接關聯，受訓後結合課程執行計畫並提出成效。以報支單系統報支。佐證：核准簽呈、原始憑證、課程資料、上課或通過證明。'},
+{cat:'其他-委辦費',big:'業務費',kw:['委辦','委託','顧問'],tip:'委託院外機構辦理教育訓練或顧問輔導。佐證：核准簽呈、原始憑證、契約書。'},
+{cat:'稿費',big:'業務費',kw:['稿費','翻譯','譯稿'],tip:'撰寫計畫書、執行報告或成果報告不得報支稿費；需註明每千字單價及全文字數並檢附完整文稿。'},
+{cat:'審查費',big:'業務費',kw:['審查費','實質審查'],tip:'聘請專家學者進行實質審查並提供書面意見所支給之酬勞；受補助計畫項下相關人員不得支領。'},
+{cat:'設備使用服務費',big:'業務費',kw:['儀器使用','設備使用','機時'],tip:'以不補助單位內部設備使用服務費為原則；如確為計畫所需且有對外一致公開收費標準並經本部認可，始得編列。應檢附使用明細或計費方式。'},
+{cat:'電腦處理費',big:'業務費',kw:['譯碼','鍵入','資料處理','硬碟','隨身碟'],tip:'資料譯碼及鍵入費須附問卷及譯碼簿，註明資料長度及件數。電腦軟體、程式設計費、網路平台架設等不得編列於此項。'},
+{cat:'工作酬金（專任/兼任）',big:'人事費',kw:['薪資','酬金','薪水','專任','兼任人員'],tip:'專任依院自訂標準核實支給；兼任按實際投入工作內容與時數核實支給，需附簽到出勤工作表。不得重複支領其他中央機關計畫人事費。'},
+{cat:'勞健保費用',big:'人事費',kw:['勞保','健保','勞健保','保險費'],tip:'雇主負擔保險費得編列於人事費項下；依中央健保署及勞保局最新費率辦理。'},
+{cat:'公提儲金',big:'人事費',kw:['退休金','儲金','勞退'],tip:'依薪資及勞動基準法等規定編列與提繳。'},
+{cat:'獎金',big:'人事費',kw:['獎金','年終','獎勵金'],tip:'僅限範疇一。年終：1/31 前在職且 12/1 仍在職發 1.5 個月，2/1 後到職按比例。獎勵金：特優 8,000／優良 5,000／良好 2,000（附件 7.6，需簽呈經院長核示）。'},
+{cat:'津貼',big:'人事費',kw:['津貼','輪值','夜班'],tip:'僅限範疇一。三級：6,000／3,000／2,000 元/月，以每月發放為原則，需簽呈經院長核示（附件 7.5）。'},
+{cat:'設備費',big:'設備費',kw:['設備','儀器','電腦軟體','系統平台','伺服器','程式設計','軟體','硬體'],tip:'限單價 1 萬元以上且使用年限 2 年以上、與計畫直接相關者；不含一般辦公設備（書櫃、桌椅、冰箱、沙發、咖啡機等不得列入）。名稱中英文並列並附具日期之估價單；未動支應全數繳回。佐證：核准簽呈、原始憑證、請購單-黃單、契約書。'}
+];
+
+const KEY='shengeng-budget-v1';
+let state={plan:'',entries:[]};
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+Math.round(n).toLocaleString('zh-TW');
+let saveTimer=null;
+
+const sel=$('catSelect');
+const groups={'人事費':[],'業務費':[],'設備費':[]};
+RULES.forEach(r=>groups[r.big].push(r));
+Object.keys(groups).forEach(b=>{
+  const og=document.createElement('optgroup');og.label=b;
+  groups[b].forEach(r=>{const o=document.createElement('option');o.value=r.cat;o.textContent=r.cat;og.appendChild(o)});
+  sel.appendChild(og);
+});
+
+function classify(t){for(const r of RULES)for(const k of r.kw)if(t.includes(k))return r;return null}
+function ruleByCat(c){return RULES.find(r=>r.cat===c)}
+
+function setStatus(txt,ok){
+  const s=$('saveStatus');
+  $('saveText').textContent=txt;
+  s.classList.toggle('saved',!!ok);
+}
+
+async function load(){
+  try{
+    const res=await window.storage.get(KEY);
+    if(res&&res.value){
+      const d=JSON.parse(res.value);
+      if(d&&Array.isArray(d.entries)){state=d}
+    }
+    setStatus('已載入儲存資料',true);
+  }catch(e){
+    setStatus('新的一份（尚無儲存資料）',false);
+  }
+  $('planName').value=state.plan||'';
+  $('apiKey').value=state.apiKey||'';
+  render();
+}
+
+function scheduleSave(){
+  setStatus('儲存中…',false);
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{
+      const res=await window.storage.set(KEY,JSON.stringify(state));
+      if(res){setStatus('已自動儲存 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true)}
+      else{setStatus('儲存失敗，請稍後再試',false)}
+    }catch(e){setStatus('儲存失敗，請稍後再試',false)}
+  },400);
+}
+
+$('planName').addEventListener('input',()=>{state.plan=$('planName').value;scheduleSave()});
+
+$('itemName').addEventListener('input',()=>{
+  const t=$('itemName').value.trim();
+  const box=$('hintBox');
+  const hit=t?classify(t):null;
+  if(hit){
+    sel.value=hit.cat;
+    box.className='hint';box.style.display='block';
+    box.innerHTML='<b>自動判斷：'+hit.big+'－'+hit.cat+'</b><br>'+hit.tip;
+  }else if(t){
+    box.className='hint warn';box.style.display='block';
+    box.innerHTML='<b>無法自動判斷</b><br>思考方式：這筆錢實際買到什麼？印製品→印刷費；場地→租金；小型物品→材料費；1 萬元以上且用 2 年以上→設備費。可手動選擇科目，或：<br><button id="aiBtn" style="margin-top:8px;background:var(--pine);border-color:var(--pine);color:#fff;font-weight:500;height:36px">請 Claude 判斷並直接編列</button>';
+    document.getElementById('aiBtn').addEventListener('click',aiJudge);
+  }else{box.style.display='none'}
+});
+
+let PENDING=[];
+window.onerror=function(msg){
+  const s=document.getElementById('saveText');
+  if(s)s.textContent='程式錯誤：'+msg;
+  return false;
+};
+async function aiJudge(){
+  const name=$('itemName').value.trim();
+  const amt=parseFloat($('itemAmt').value);
+  const box=$('hintBox');
+  const btn=$('aiTopBtn');
+  if(btn){btn.disabled=true;btn.textContent='判斷中…'}
+  function done(){if(btn){btn.disabled=false;btn.textContent='Claude 判斷並編列'}}
+  box.style.display='block';box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(!name){
+    box.className='hint warn';box.style.display='block';
+    box.innerHTML='<b>請先輸入品項說明</b><br>在「品項說明」欄填入這筆支出的內容或整個活動名稱（例如：VTS 訓練講師費，或：辦理教師工作坊及共備會議），再按「Claude 判斷並編列」。';
+    $('itemName').focus();done();return;
+  }
+  box.className='hint';box.style.display='block';
+  box.innerHTML='<b>Claude 判斷中…</b><br>正在依 A1002 附件 7.2 分析「'+esc(name)+'」，約需數秒。若屬活動包將自動產生拆項對照表。';
+  const catList=RULES.map(r=>r.big+'－'+r.cat).join('、');
+  try{
+    let data=null,lastErr=null;
+    for(let attempt=1;attempt<=3;attempt++){
+      if(attempt>1){
+        box.innerHTML='<b>Claude 判斷中…（第 '+attempt+' 次嘗試）</b><br>伺服器暫時忙碌，自動重試中，請稍候。';
+        await new Promise(r=>setTimeout(r,1200*attempt));
+      }
+      try{
+        const key=(state.apiKey||'').trim();
+        const headers={'Content-Type':'application/json'};
+        if(key){
+          headers['x-api-key']=key;
+          headers['anthropic-version']='2023-06-01';
+          headers['anthropic-dangerous-direct-browser-access']='true';
+        }
+        const resp=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:headers,
+          body:JSON.stringify({
+            model:'claude-sonnet-4-6',
+            max_tokens:1000,
+            messages:[{role:'user',content:'你是奇美醫院健康臺灣深耕計畫（A1002 程序書）的經費編列助理。經費科目僅限以下清單：'+catList+'。判斷原則：看實際購買的東西而非用途名稱；印製品歸印刷費；場地歸租金；單價未達1萬元物品歸材料費；1萬元以上且年限2年以上歸設備費；講師授課歸講座鐘點費。特別注意：若輸入是「活動包」（用途描述而非單一支出品項，如：辦理某某工作坊、訓練、會議、試辦活動、評量分析等），必須拆成該活動實際會發生的多筆支出。院內同仁共備會議不得編出席費（工作協調性質不得支領），僅院外專家以專家身分出席可編。請判斷「'+name+'」。只回覆 JSON，不要任何其他文字或markdown符號。若為單一支出：{"mode":"single","cat":"科目名稱須與清單完全一致","reason":"30字內理由","docs":"佐證文件40字內"}。若為活動包：{"mode":"bundle","reason":"為何需拆項，40字內","items":[{"name":"具體支出品項名","cat":"科目名稱須與清單完全一致","note":"上限或標準提醒20字內"}]}，items列出4到6筆最可能的支出，全部內容務必精簡以確保JSON完整。'}]
+          })
+        });
+        data=await resp.json();
+        if(data&&data.error){lastErr=new Error(data.error.message||'API 回傳錯誤');data=null;continue}
+        if(data&&data.content){break}
+        lastErr=new Error('API 未回傳內容');data=null;
+      }catch(fe){lastErr=fe;data=null}
+    }
+    if(!data){throw lastErr||new Error('連線失敗')}
+    const text=(data.content||[]).filter(i=>i.type==='text').map(i=>i.text).join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    let j;
+    try{j=JSON.parse(clean)}catch(pe){throw new Error('AI 回覆格式不完整，請再按一次重試')}
+    if(j.mode==='bundle'&&Array.isArray(j.items)&&j.items.length){
+      PENDING=j.items.filter(it=>ruleByCat(it.cat)).map(it=>({name:it.name,cat:it.cat,big:ruleByCat(it.cat).big,note:it.note||'',added:false}));
+      renderBundle(name,j.reason||'此為活動包，需拆成實際支出分項編列。');
+    }else{
+      const r=ruleByCat(j.cat);
+      if(!r){throw new Error('科目不在清單中')}
+      if(amt&&amt>0){
+        state.entries.push({name:name,amt:amt,cat:r.cat,big:r.big});
+        $('itemName').value='';$('itemAmt').value='';
+        render();scheduleSave();
+        box.innerHTML='<b>已編列：'+r.big+'－'+r.cat+'</b><br>理由：'+esc(j.reason||'')+'<br>佐證文件：'+esc(j.docs||'');
+      }else{
+        sel.value=r.cat;
+        box.innerHTML='<b>判斷結果：'+r.big+'－'+r.cat+'（已幫您選好科目）</b><br>理由：'+esc(j.reason||'')+'<br>佐證文件：'+esc(j.docs||'')+'<br>請填入金額後按「＋ 加入明細」。';
+        $('itemAmt').focus();
+      }
+    }
+  }catch(e){
+    localBundle(name,e.message||String(e));
+  }
+  done();
+}
+
+function localBundle(name,errMsg){
+  const segs=name.split(/[、，,；;／/\s]+|及|與|和/).map(s=>s.trim()).filter(s=>s.length>=2);
+  PENDING=segs.map(s=>{
+    const hit=classify(s);
+    return {name:s,cat:hit?hit.cat:'',big:hit?hit.big:'',note:hit?'關鍵字判斷，可修改':'請手動選科目',added:false};
+  });
+  if(!PENDING.length){
+    const box=$('hintBox');
+    box.className='hint warn';box.style.display='block';
+    box.innerHTML='<b>AI 暫時無法連線</b><br>錯誤訊息：'+esc(errMsg)+'<br>請由上方下拉選單手動選擇科目後按「加入明細」。';
+    return;
+  }
+  renderBundle(name,'AI 服務暫時無法連線（'+errMsg+'），已改用本機關鍵字拆項。科目由關鍵字推估，請逐列確認、必要時用下拉選單修改。');
+}
+
+function catOptionsHtml(){
+  let h='<option value="">－請選擇－</option>';
+  ['人事費','業務費','設備費'].forEach(b=>{
+    h+='<optgroup label="'+b+'">';
+    RULES.filter(r=>r.big===b).forEach(r=>{h+='<option value="'+esc(r.cat)+'">'+esc(r.cat)+'</option>'});
+    h+='</optgroup>';
+  });
+  return h;
+}
+
+function renderBundle(srcName,reason){
+  const box=$('hintBox');
+  let html='<b>「'+esc(srcName)+'」是活動包，不能歸單一科目</b><br>'+esc(reason)+'<br>拆項對照如下，確認科目、填入金額後逐筆按「加入」，或填完後按「全部加入」：';
+  html+='<table style="margin-top:10px;font-size:13px"><thead><tr><th style="width:30%">建議支出品項</th><th style="width:28%">科目（可修改）</th><th style="width:20%">提醒</th><th style="width:15%">金額</th><th style="width:7%"></th></tr></thead><tbody>';
+  const opts=catOptionsHtml();
+  PENDING.forEach((it,i)=>{
+    html+='<tr id="pRow'+i+'"><td>'+esc(it.name)+'</td>'+
+      '<td><select id="pCat'+i+'" style="height:32px;font-size:12.5px;padding:0 6px">'+opts+'</select></td>'+
+      '<td style="color:var(--ink-2);font-size:12px">'+esc(it.note)+'</td>'+
+      '<td><input type="number" id="pAmt'+i+'" min="0" step="1" style="height:32px;font-size:13px;padding:0 8px" placeholder="0"></td>'+
+      '<td><button id="pAdd'+i+'" style="height:32px;padding:0 10px;font-size:13px">加入</button></td></tr>';
+  });
+  html+='</tbody></table>';
+  html+='<div style="margin-top:10px;display:flex;gap:8px"><button id="pAddAll" style="background:var(--pine);border-color:var(--pine);color:#fff;font-weight:500;height:36px">全部加入（已填金額的列）</button><button id="pClose" style="height:36px">關閉</button></div>';
+  box.className='hint';box.style.display='block';
+  box.innerHTML=html;
+  PENDING.forEach((it,i)=>{
+    const cs=document.getElementById('pCat'+i);
+    if(it.cat)cs.value=it.cat;
+    cs.addEventListener('change',()=>{
+      const r=ruleByCat(cs.value);
+      it.cat=r?r.cat:'';it.big=r?r.big:'';
+    });
+    document.getElementById('pAdd'+i).addEventListener('click',()=>addSuggested(i));
+    document.getElementById('pAmt'+i).addEventListener('keydown',e=>{if(e.key==='Enter')addSuggested(i)});
+  });
+  document.getElementById('pAddAll').addEventListener('click',()=>{PENDING.forEach((it,i)=>addSuggested(i))});
+  document.getElementById('pClose').addEventListener('click',()=>{box.style.display='none';PENDING=[]});
+}
+
+function addSuggested(i){
+  const it=PENDING[i];
+  if(!it||it.added)return;
+  const cs=document.getElementById('pCat'+i);
+  const r=ruleByCat(cs?cs.value:it.cat);
+  if(!r){if(cs)cs.focus();return}
+  const inp=document.getElementById('pAmt'+i);
+  const amt=parseFloat(inp.value);
+  if(!amt||amt<=0){inp.focus();return}
+  state.entries.push({name:it.name,amt:amt,cat:r.cat,big:r.big});
+  it.added=true;
+  const row=document.getElementById('pRow'+i);
+  if(row){row.style.opacity='0.45';inp.disabled=true;if(cs)cs.disabled=true;
+    const btn=document.getElementById('pAdd'+i);btn.textContent='已加入';btn.disabled=true}
+  render();scheduleSave();
+}
+
+sel.addEventListener('change',()=>{
+  const r=ruleByCat(sel.value);
+  if(r){const box=$('hintBox');box.className='hint';box.style.display='block';
+    box.innerHTML='<b>'+r.big+'－'+r.cat+'</b><br>'+r.tip}
+});
+
+function render(){
+  const body=$('listBody');body.innerHTML='';
+  const badge={'人事費':'b-p','業務費':'b-b','設備費':'b-s'};
+  const order=['人事費','業務費','設備費'];
+  const sums={'人事費':0,'業務費':0,'設備費':0};
+  if(!state.entries.length){
+    body.innerHTML='<tr><td colspan="5" class="empty">尚無明細。輸入品項與金額後按「加入明細」，資料會自動儲存。</td></tr>';
+  }else{
+    order.forEach(big=>{
+      const rows=state.entries.map((e,i)=>({e,i})).filter(x=>x.e.big===big);
+      if(!rows.length)return;
+      rows.forEach(({e,i})=>{
+        sums[big]+=e.amt;
+        const tr=document.createElement('tr');
+        tr.innerHTML='<td>'+esc(e.name)+'</td>'+
+          '<td><span class="badge '+badge[big]+'">'+big+'</span></td>'+
+          '<td style="color:var(--ink-2)">'+esc(e.cat)+'</td>'+
+          '<td class="num">'+fmt(e.amt)+'</td>'+
+          '<td class="no-print" style="text-align:right"><button class="subtle" aria-label="刪除" data-i="'+i+'">✕</button></td>';
+        body.appendChild(tr);
+      });
+      const st=document.createElement('tr');st.className='subtotal-row';
+      st.innerHTML='<td colspan="3">'+big+'小計</td><td class="num">'+fmt(sums[big])+'</td><td class="no-print"></td>';
+      body.appendChild(st);
+    });
+  }
+  body.querySelectorAll('button[data-i]').forEach(btn=>{
+    btn.addEventListener('click',()=>{state.entries.splice(parseInt(btn.dataset.i),1);render();scheduleSave()});
+  });
+  $('sumP').textContent=fmt(sums['人事費']);
+  $('sumB').textContent=fmt(sums['業務費']);
+  $('sumS').textContent=fmt(sums['設備費']);
+  $('sumT').textContent=fmt(sums['人事費']+sums['業務費']+sums['設備費']);
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+$('addBtn').addEventListener('click',()=>{
+  const name=$('itemName').value.trim();
+  const amt=parseFloat($('itemAmt').value);
+  if(!name){$('itemName').focus();return}
+  if(!amt||amt<=0){$('itemAmt').focus();return}
+  const r=ruleByCat(sel.value)||RULES[0];
+  state.entries.push({name:name,amt:amt,cat:r.cat,big:r.big});
+  $('itemName').value='';$('itemAmt').value='';$('hintBox').style.display='none';
+  render();scheduleSave();
+});
+$('itemAmt').addEventListener('keydown',e=>{if(e.key==='Enter')$('addBtn').click()});
+$('aiTopBtn').addEventListener('click',aiJudge);
+$('apiKeySave').addEventListener('click',()=>{
+  const k=$('apiKey').value.trim();
+  if(k&&!k.startsWith('sk-ant-')){
+    setStatus('金鑰格式不對，應以 sk-ant- 開頭',false);$('apiKey').focus();return;
+  }
+  state.apiKey=k;scheduleSave();
+  setStatus(k?'金鑰已儲存，AI 判斷將改用直連':'金鑰為空',true);
+});
+$('apiKeyClear').addEventListener('click',()=>{
+  $('apiKey').value='';state.apiKey='';scheduleSave();
+  setStatus('金鑰已清除，改回平台通道',true);
+});
+
+$('clearBtn').addEventListener('click',()=>{
+  if(!state.entries.length)return;
+  if(confirm('確定清空全部明細？此動作無法復原。')){state.entries=[];render();scheduleSave()}
+});
+
+$('csvBtn').addEventListener('click',()=>{
+  const sums={'人事費':0,'業務費':0,'設備費':0};
+  state.entries.forEach(e=>sums[e.big]+=e.amt);
+  let rows=[['子計畫/活動名稱',state.plan||''],[],['品項','大類','科目','金額（元）']];
+  ['人事費','業務費','設備費'].forEach(big=>{
+    state.entries.filter(e=>e.big===big).forEach(e=>rows.push([e.name,e.big,e.cat,Math.round(e.amt)]));
+    if(state.entries.some(e=>e.big===big))rows.push([big+'小計','','',Math.round(sums[big])]);
+  });
+  rows.push(['總計','','',Math.round(sums['人事費']+sums['業務費']+sums['設備費'])]);
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(state.plan?state.plan+'_':'')+'深耕經費明細.csv';
+  a.click();URL.revokeObjectURL(a.href);
+});
+
+load();
+</script>
+</body>
+</html>
